@@ -1,0 +1,317 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0756a8">
+  <title>E-Apel Guru | SMKN 4 Buton Tengah</title>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #eef4fb;
+      color: #17324d;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .header {
+      padding: 24px 18px;
+      color: white;
+      text-align: center;
+      background: linear-gradient(135deg, #0756a8, #0d8bea);
+      border-radius: 18px 18px 0 0;
+    }
+
+    .header h2 {
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+
+    .header p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .card {
+      padding: 18px;
+      background: white;
+      border-radius: 0 0 18px 18px;
+      box-shadow: 0 8px 24px #12345615;
+    }
+
+    #status {
+      padding: 12px;
+      margin-bottom: 16px;
+      border-radius: 10px;
+      background: #e8f2ff;
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    #reader {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      padding: 13px 8px;
+      border: 0;
+      border-radius: 10px;
+      background: #0756a8;
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: #64748b;
+    }
+
+    .result {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #d7e3f1;
+      border-radius: 10px;
+      overflow-wrap: anywhere;
+    }
+
+    .result strong {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .note {
+      margin-top: 16px;
+      color: #52677d;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+    <header class="header">
+      <h2>E-APEL GURU</h2>
+      <p>SMKN 4 BUTON TENGAH</p>
+      <p>Scanner QR Code</p>
+    </header>
+
+    <section class="card">
+      <div id="status" role="status" aria-live="polite">
+        Tekan tombol Mulai Kamera untuk memulai pemindaian.
+      </div>
+
+      <div id="reader"></div>
+
+      <div class="buttons">
+        <button id="startBtn" onclick="mulaiKamera()">
+          Mulai Kamera
+        </button>
+
+        <button id="stopBtn" class="secondary"
+                onclick="hentikanKamera()" disabled>
+          Hentikan Kamera
+        </button>
+      </div>
+
+      <div class="result">
+        <strong>Hasil pembacaan QR</strong>
+        <div id="hasil">Belum ada QR yang dibaca.</div>
+        <div class="buttons">
+          <button class="secondary" onclick="salinHasil()">
+            Salin Hasil
+          </button>
+          <button onclick="resetHasil()">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <p class="note">
+        Pastikan izin kamera Chrome sudah diberikan. Arahkan kamera
+        belakang ke QR Code. Halaman ini hanya menguji kamera dan
+        membaca QR; belum merekam kehadiran ke database.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    let scanner = null;
+    let kameraAktif = false;
+    let sedangMemulai = false;
+    let hasilQR = "";
+    let jedaScan = false;
+
+    const statusEl = document.getElementById("status");
+    const hasilEl = document.getElementById("hasil");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    function ubahStatus(pesan) {
+      statusEl.textContent = pesan;
+    }
+
+    async function mulaiKamera() {
+      if (kameraAktif || sedangMemulai) return;
+
+      if (!window.isSecureContext) {
+        ubahStatus(
+          "Kamera membutuhkan koneksi HTTPS. " +
+          "Pastikan Anda membuka situs GitHub Pages."
+        );
+        return;
+      }
+
+      if (!window.Html5Qrcode) {
+        ubahStatus(
+          "Pustaka scanner belum termuat. Periksa koneksi internet " +
+          "dan muat ulang halaman."
+        );
+        return;
+      }
+
+      sedangMemulai = true;
+      startBtn.disabled = true;
+      ubahStatus("Meminta akses kamera HP...");
+
+      try {
+        scanner = new Html5Qrcode("reader");
+
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: function (width, height) {
+              const sisi = Math.floor(
+                Math.min(width, height) * 0.70
+              );
+              return { width: sisi, height: sisi };
+            },
+            aspectRatio: 1
+          },
+          function (teks) {
+            if (jedaScan) return;
+
+            jedaScan = true;
+            hasilQR = teks;
+            hasilEl.textContent = teks;
+            ubahStatus(
+              "QR berhasil dibaca. Kamera tetap aktif; " +
+              "hasil ditampilkan di bawah."
+            );
+
+            setTimeout(function () {
+              jedaScan = false;
+            }, 1800);
+
+          },
+          function () {
+            // Tidak ada QR terbaca pada frame ini.
+          }
+        );
+
+        kameraAktif = true;
+        stopBtn.disabled = false;
+        ubahStatus(
+          "Kamera aktif. Arahkan kamera belakang ke QR Code."
+        );
+
+      } catch (err) {
+        const nama = err && err.name ? err.name : "";
+        const pesan = err && err.message ? err.message : String(err);
+
+        if (nama === "NotAllowedError" ||
+            /permission denied|notallowed/i.test(pesan)) {
+          ubahStatus(
+            "Akses kamera ditolak. Periksa izin kamera untuk " +
+            "situs GitHub Pages di Chrome Android."
+          );
+        } else if (nama === "NotFoundError") {
+          ubahStatus("Kamera tidak ditemukan pada perangkat.");
+        } else {
+          ubahStatus("Kamera gagal dijalankan: " + pesan);
+        }
+
+        scanner = null;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+
+      } finally {
+        sedangMemulai = false;
+      }
+    }
+
+    async function hentikanKamera() {
+      if (!scanner || !kameraAktif) return;
+
+      stopBtn.disabled = true;
+      ubahStatus("Menghentikan kamera...");
+
+      try {
+        await scanner.stop();
+        scanner.clear();
+        scanner = null;
+        kameraAktif = false;
+        startBtn.disabled = false;
+        ubahStatus("Kamera berhenti. Tekan Mulai Kamera untuk mencoba lagi.");
+      } catch (err) {
+        ubahStatus("Kamera gagal dihentikan: " + err.message);
+        startBtn.disabled = false;
+      }
+    }
+
+    async function salinHasil() {
+      if (!hasilQR) {
+        ubahStatus("Belum ada QR yang dapat disalin.");
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(hasilQR);
+        ubahStatus("Hasil QR berhasil disalin.");
+      } catch (err) {
+        ubahStatus(
+          "Tidak dapat menyalin otomatis. Pilih dan salin teks hasil QR."
+        );
+      }
+    }
+
+    function resetHasil() {
+      hasilQR = "";
+      hasilEl.textContent = "Belum ada QR yang dibaca.";
+      ubahStatus(
+        kameraAktif
+          ? "Kamera aktif. Silakan pindai QR berikutnya."
+          : "Hasil direset. Tekan Mulai Kamera untuk memulai."
+      );
+    }
+  </script>
+</body>
+</html>
